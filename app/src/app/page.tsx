@@ -45,6 +45,8 @@ export default function Home() {
   const stepIndexRef = useRef(0);
   const conversationActiveRef = useRef(false);
   const isSpeakingRef = useRef(false);
+  const activeTabRef = useRef<TabKey>("home");
+  const autoRestartRef = useRef(false);
 
   const storageKeys = {
     session: "ea.sessionId",
@@ -273,6 +275,13 @@ export default function Home() {
   }, [isSpeaking]);
 
   useEffect(() => {
+    activeTabRef.current = activeTab;
+    if (activeTab !== "voice") {
+      autoRestartRef.current = false;
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -311,7 +320,12 @@ export default function Home() {
 
     recognition.onend = () => {
       setIsListening(false);
-      if (conversationActiveRef.current && !isSpeakingRef.current) {
+      if (
+        conversationActiveRef.current &&
+        !isSpeakingRef.current &&
+        activeTabRef.current === "voice" &&
+        autoRestartRef.current
+      ) {
         try {
           recognition.start();
           setIsListening(true);
@@ -480,6 +494,10 @@ export default function Home() {
     if (!recognitionRef.current) {
       return;
     }
+    if (activeTabRef.current !== "voice") {
+      return;
+    }
+    autoRestartRef.current = true;
     try {
       setIsCommandMode(false);
       setAssistantSteps([]);
@@ -493,11 +511,15 @@ export default function Home() {
   }
 
   function handleConversationEnd() {
+    conversationActiveRef.current = false;
+    commandModeRef.current = false;
+    autoRestartRef.current = false;
     setIsConversationActive(false);
     setIsCommandMode(false);
     setAssistantSteps([]);
     setCurrentStepIndex(0);
     recognitionRef.current?.stop();
+    recognitionRef.current?.abort?.();
     setIsListening(false);
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
@@ -534,6 +556,7 @@ export default function Home() {
     if (isListening || isSpeakingRef.current) {
       return;
     }
+    autoRestartRef.current = true;
     try {
       setIsListening(true);
       recognitionRef.current.start();
@@ -827,15 +850,16 @@ export default function Home() {
                 ) : (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {showBackButton ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleConversationEnd();
-                            setActiveTab("home");
-                          }}
-                          className="text-xl text-slate-500"
-                        >
+                    {showBackButton ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          activeTabRef.current = "home";
+                          handleConversationEnd();
+                          setActiveTab("home");
+                        }}
+                        className="text-xl text-slate-500"
+                      >
                           ←
                         </button>
                       ) : null}
@@ -1365,6 +1389,7 @@ export default function Home() {
                       type="button"
                       onClick={() => {
                         if (tab === "home") {
+                          activeTabRef.current = "home";
                           handleConversationEnd();
                         }
                         setActiveTab(tab);
