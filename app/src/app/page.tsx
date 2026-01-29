@@ -104,9 +104,10 @@ export default function Home() {
       const name =
         namePool[(index + Math.floor(Math.random() * namePool.length)) % namePool.length];
       const age = 10 + Math.floor(Math.random() * 55);
+      const sex: "male" | "female" = Math.random() > 0.5 ? "male" : "female";
       return {
         name: index === 0 ? "User" : name,
-        sex: Math.random() > 0.5 ? "male" : "female",
+        sex,
         age,
         conditions: [],
         notes: "",
