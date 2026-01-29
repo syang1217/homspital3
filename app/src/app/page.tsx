@@ -25,16 +25,12 @@ type TabKey = "home" | "history" | "info" | "voice" | "prep";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabKey>("home");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [hasSignedUp, setHasSignedUp] = useState(false);
+  const [isAuthenticated] = useState(true);
+  const [hasSignedUp, setHasSignedUp] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [isStorageReady, setIsStorageReady] = useState(false);
-  const [userId, setUserId] = useState("");
-  const [userPassword, setUserPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
   const [voiceMessages, setVoiceMessages] = useState<VoiceMessage[]>([]);
   const [speechSupported, setSpeechSupported] = useState(true);
   const [isListening, setIsListening] = useState(false);
@@ -63,7 +59,7 @@ export default function Home() {
     caution: string;
   } | null>(null);
   const [lastPrepSignature, setLastPrepSignature] = useState("");
-  const [familyCount, setFamilyCount] = useState(1);
+  const [familyCount, setFamilyCount] = useState(3);
   const [familyMembers, setFamilyMembers] = useState<
     {
       name: string;
@@ -72,7 +68,7 @@ export default function Home() {
       conditions: string[];
       notes: string;
     }[]
-  >([createDefaultMember()]);
+  >(() => createRandomMembers(3));
 
   const healthConditions = [
     "Diabetes",
@@ -92,6 +88,30 @@ export default function Home() {
       conditions: [] as string[],
       notes: "",
     };
+  }
+
+  function createRandomMembers(count: number) {
+    const namePool = [
+      "Alex",
+      "Jamie",
+      "Taylor",
+      "Jordan",
+      "Casey",
+      "Morgan",
+      "Riley",
+    ];
+    return Array.from({ length: count }, (_, index) => {
+      const name =
+        namePool[(index + Math.floor(Math.random() * namePool.length)) % namePool.length];
+      const age = 10 + Math.floor(Math.random() * 55);
+      return {
+        name: index === 0 ? "User" : name,
+        sex: Math.random() > 0.5 ? "male" : "female",
+        age,
+        conditions: [],
+        notes: "",
+      };
+    });
   }
 
   useEffect(() => {
@@ -128,24 +148,12 @@ export default function Home() {
       if (storedProfile && isActive) {
         try {
           const parsed = JSON.parse(storedProfile) as {
-            isAuthenticated?: boolean;
             hasSignedUp?: boolean;
-            hasCompletedOnboarding?: boolean;
-            userId?: string;
             familyCount?: number;
             familyMembers?: typeof familyMembers;
           };
-          if (typeof parsed.userId === "string") {
-            setUserId(parsed.userId);
-          }
           if (typeof parsed.hasSignedUp === "boolean") {
             setHasSignedUp(parsed.hasSignedUp);
-          }
-          if (typeof parsed.hasCompletedOnboarding === "boolean") {
-            setHasCompletedOnboarding(parsed.hasCompletedOnboarding);
-          }
-          if (typeof parsed.isAuthenticated === "boolean") {
-            setIsAuthenticated(parsed.isAuthenticated);
           }
           if (
             typeof parsed.familyCount === "number" &&
@@ -176,20 +184,14 @@ export default function Home() {
   }, [storageKeys.profile, storageKeys.session]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      setShowSplash(false);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (isAuthenticated || !showSplash) {
+    if (!showSplash) {
       return;
     }
     const timer = window.setTimeout(() => {
       setShowSplash(false);
     }, 2000);
     return () => window.clearTimeout(timer);
-  }, [isAuthenticated, showSplash]);
+  }, [showSplash]);
 
   useEffect(() => {
     if (activeTab === "voice") {
@@ -222,24 +224,12 @@ export default function Home() {
       }
       try {
         const parsed = JSON.parse(event.newValue) as {
-          isAuthenticated?: boolean;
           hasSignedUp?: boolean;
-          hasCompletedOnboarding?: boolean;
-          userId?: string;
           familyCount?: number;
           familyMembers?: typeof familyMembers;
         };
-        if (typeof parsed.userId === "string") {
-          setUserId(parsed.userId);
-        }
         if (typeof parsed.hasSignedUp === "boolean") {
           setHasSignedUp(parsed.hasSignedUp);
-        }
-        if (typeof parsed.hasCompletedOnboarding === "boolean") {
-          setHasCompletedOnboarding(parsed.hasCompletedOnboarding);
-        }
-        if (typeof parsed.isAuthenticated === "boolean") {
-          setIsAuthenticated(parsed.isAuthenticated);
         }
         if (typeof parsed.familyCount === "number" && parsed.familyCount > 0) {
           setFamilyCount(parsed.familyCount);
@@ -265,25 +255,17 @@ export default function Home() {
     if (!isStorageReady) {
       return;
     }
-    if (!hasSignedUp && !isAuthenticated) {
-      localStorage.removeItem(storageKeys.profile);
-      return;
-    }
     const profile = {
-      isAuthenticated,
       hasSignedUp,
       hasCompletedOnboarding,
-      userId,
       familyCount,
       familyMembers,
     };
     localStorage.setItem(storageKeys.profile, JSON.stringify(profile));
   }, [
-    isAuthenticated,
     hasSignedUp,
     hasCompletedOnboarding,
     isStorageReady,
-    userId,
     familyCount,
     familyMembers,
     storageKeys.profile,
@@ -638,36 +620,6 @@ export default function Home() {
     });
   }
 
-  function handleLoginSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedId = userId.trim();
-    const trimmedPassword = userPassword.trim();
-    if (!trimmedId || !trimmedPassword) {
-      setLoginError("Please enter your ID and password.");
-      return;
-    }
-    if (authMode === "login" && !hasSignedUp) {
-      setLoginError("No account found for that ID.");
-      return;
-    }
-    if (authMode === "signup") {
-      if (familyCount < 1 || familyMembers.length == 0) {
-        setLoginError("Please add at least one family member.");
-        return;
-      }
-      if (!familyMembers[0]?.name.trim()) {
-        setLoginError("Please enter your name for the User profile.");
-        return;
-      }
-      setHasSignedUp(true);
-      setHasCompletedOnboarding(false);
-      setOnboardingStep(0);
-    }
-    setLoginError("");
-    setIsAuthenticated(true);
-    setActiveTab("home");
-  }
-
   function handleVoiceCommand(transcript: string) {
     const command = normalizeCommand(transcript);
     const steps = stepsRef.current;
@@ -841,7 +793,7 @@ export default function Home() {
     activeTab === "voice"
       ? "AI Emergency Assistant"
       : activeTab === "prep"
-        ? "Quasi-Drug Recommendations"
+        ? "AI Medication Recommendation"
         : activeTab === "history"
           ? "Usage History"
           : activeTab === "info"
@@ -877,314 +829,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <div className="mx-auto h-screen w-full max-w-md bg-white md:my-8 md:h-[844px] md:w-[390px] md:rounded-[32px] md:shadow-xl md:overflow-hidden md:relative">
-        {!isAuthenticated ? (
-          showSplash ? (
-            <main
-              onClick={() => setShowSplash(false)}
-              className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 py-10 text-center md:min-h-0"
-            >
-              <Image
-                src="/logo.png"
-                alt="Homspital"
-                width={240}
-                height={120}
-                className="h-20 w-auto"
-                priority
-              />
-              <p className="text-xs text-slate-400">
-                Tap Anywhere To Continue
-              </p>
-            </main>
-          ) : (
-            <main className="flex min-h-screen flex-col gap-8 px-6 py-10 md:min-h-0">
-              <div className="flex flex-col items-center gap-3 pt-6">
-                <Image
-                  src="/logo.png"
-                  alt="Homspital"
-                  width={180}
-                  height={90}
-                  className="h-12 w-auto"
-                  priority
-                />
-                <p className="text-sm text-slate-500">
-                  Safe home, made into an emergency assistant.
-                </p>
-              </div>
-              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">
-                      {authMode === "login" ? "Log In" : "Sign Up"}
-                    </h2>
-                    <p className="text-sm text-slate-500">
-                      {authMode === "login"
-                        ? "Welcome Back. Enter Your Account Details."
-                        : "Create Your Profile Once To Get Started."}
-                    </p>
-                  </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode("login");
-                      setLoginError("");
-                    }}
-                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                      authMode === "login"
-                        ? "border-emerald-600 bg-emerald-600 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    Log In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode("signup");
-                      setLoginError("");
-                    }}
-                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                      authMode === "signup"
-                        ? "border-emerald-600 bg-emerald-600 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-                    }`}
-                  >
-                    Sign Up
-                  </button>
-                </div>
-
-                <form
-                  onSubmit={handleLoginSubmit}
-                  className="flex flex-col gap-4"
-                >
-                  <div className="grid gap-3">
-                    <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                      Id
-                      <input
-                        value={userId}
-                        onChange={(event) => setUserId(event.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-                        placeholder="your-id"
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                      Password
-                      <input
-                        type="password"
-                        value={userPassword}
-                        onChange={(event) => setUserPassword(event.target.value)}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-                        placeholder="••••••••"
-                      />
-                    </label>
-                  </div>
-
-                  {authMode === "signup" ? (
-                    <>
-                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                        <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                          Family Size
-                        </label>
-                        <div className="mt-3">
-                          <select
-                            value={familyCount}
-                            onChange={(event) =>
-                              updateFamilyCount(Number(event.target.value))
-                            }
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-                          >
-                            {[1, 2, 3, 4, 5, 6].map((count) => (
-                              <option key={count} value={count}>
-                                {count} Member{count > 1 ? "s" : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                          Family Members (Including You)
-                        </p>
-                        <div className="mt-3 space-y-3">
-                          {familyMembers
-                            .slice(0, familyCount)
-                            .map((member, index) => {
-                              const roleLabel =
-                                index === 0 ? "User" : `Family ${index}`;
-                              return (
-                                <div
-                                  key={`family-${index}`}
-                                  className="rounded-lg border border-slate-200 bg-white p-3 text-sm"
-                                >
-                                  <p className="font-semibold text-slate-700">
-                                    {roleLabel}
-                                  </p>
-                                  <label className="mt-2 flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                    Name
-                                    <input
-                                      value={member.name}
-                                      onChange={(event) => {
-                                        const name = event.target.value;
-                                        setFamilyMembers((prev) => {
-                                          const updated = [...prev];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            name,
-                                          };
-                                          return updated;
-                                        });
-                                      }}
-                                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-                                      placeholder={
-                                        index === 0
-                                          ? "Your name"
-                                          : "Family member name"
-                                      }
-                                    />
-                                  </label>
-                                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                    <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                      Sex
-                                      <select
-                                        value={member.sex}
-                                        onChange={(event) => {
-                                          const sex = event.target.value as
-                                            | "male"
-                                            | "female"
-                                            | "";
-                                          setFamilyMembers((prev) => {
-                                            const updated = [...prev];
-                                            updated[index] = {
-                                              ...updated[index],
-                                              sex,
-                                            };
-                                            return updated;
-                                          });
-                                        }}
-                                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-                                      >
-                                        <option value="">Select</option>
-                                        {(["male", "female"] as const).map(
-                                          (sex) => (
-                                            <option key={sex} value={sex}>
-                                              {sex === "male"
-                                                ? "Male"
-                                                : "Female"}
-                                            </option>
-                                          ),
-                                        )}
-                                      </select>
-                                    </label>
-                                    <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                      Age
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        value={member.age}
-                                        onChange={(event) => {
-                                          const age = Number(event.target.value);
-                                          setFamilyMembers((prev) => {
-                                            const updated = [...prev];
-                                            updated[index] = {
-                                              ...updated[index],
-                                              age: Number.isNaN(age) ? 0 : age,
-                                            };
-                                            return updated;
-                                          });
-                                        }}
-                                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-                                      />
-                                    </label>
-                                  </div>
-                                  <div className="mt-3">
-                                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                      Special Health Issues
-                                    </p>
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                      {healthConditions.map((condition) => (
-                                        <label
-                                          key={`${index}-${condition}`}
-                                          className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={member.conditions.includes(
-                                              condition,
-                                            )}
-                                            onChange={() =>
-                                              setFamilyMembers((prev) => {
-                                                const updated = [...prev];
-                                                const current =
-                                                  updated[index].conditions;
-                                                const nextConditions =
-                                                  current.includes(condition)
-                                                    ? current.filter(
-                                                        (item) =>
-                                                          item !== condition,
-                                                      )
-                                                    : [...current, condition];
-                                                updated[index] = {
-                                                  ...updated[index],
-                                                  conditions: nextConditions,
-                                                };
-                                                return updated;
-                                              })
-                                            }
-                                          />
-                                          {condition}
-                                        </label>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <label className="mt-3 flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                    Additional Notes
-                                    <textarea
-                                      value={member.notes}
-                                      onChange={(event) => {
-                                        const notes = event.target.value;
-                                        setFamilyMembers((prev) => {
-                                          const updated = [...prev];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            notes,
-                                          };
-                                          return updated;
-                                        });
-                                      }}
-                                      rows={2}
-                                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-                                      placeholder="Add any special notes not listed above."
-                                    />
-                                  </label>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
-
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="submit"
-                      className="w-full rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500"
-                    >
-                      {authMode === "login" ? "Log In" : "Create Account"}
-                    </button>
-                  </div>
-                  {loginError ? (
-                    <p className="text-sm text-rose-500">{loginError}</p>
-                  ) : null}
-                </form>
-                </div>
-              </section>
-            </main>
-          )
-        ) : (
-          <div className="flex h-full flex-col">
-            {showTopBar && hasCompletedOnboarding ? (
+        <div className="flex h-full flex-col">
+            {showTopBar && !showSplash && hasCompletedOnboarding ? (
               <header className="border-b border-slate-200 bg-white px-5 py-4">
                 {activeTab === "home" ? (
                   <div className="flex justify-center">
@@ -1235,7 +881,24 @@ export default function Home() {
                 showBottomNav ? "pb-24" : "pb-10"
               }`}
             >
-              {!hasCompletedOnboarding ? (
+              {showSplash ? (
+                <section
+                  onClick={() => setShowSplash(false)}
+                  className="flex min-h-full flex-col items-center justify-center gap-4 text-center"
+                >
+                  <Image
+                    src="/logo.png"
+                    alt="Homspital"
+                    width={240}
+                    height={120}
+                    className="h-20 w-auto"
+                    priority
+                  />
+                  <p className="text-xs text-slate-400">
+                    Tap Anywhere To Continue
+                  </p>
+                </section>
+              ) : !hasCompletedOnboarding ? (
                 <section className="flex min-h-full flex-col items-center text-center">
                   <div className="mt-4 flex w-full items-center gap-3">
                     {onboardingSlides.map((_, index) => (
@@ -1300,6 +963,8 @@ export default function Home() {
                       {familyMembers.slice(0, familyCount).map((member, index) => {
                         const roleLabel =
                           index === 0 ? "User" : `Family ${index}`;
+                        const displayName =
+                          member.name?.trim() || (index === 0 ? "User" : roleLabel);
                         return (
                           <div
                             key={`home-family-${index}`}
@@ -1308,7 +973,7 @@ export default function Home() {
                             <div className="h-10 w-10 rounded-full bg-emerald-50" />
                             <div>
                               <div className="text-xs text-slate-400">
-                                {roleLabel}
+                                {displayName}
                               </div>
                               <div className="font-medium text-slate-700">
                                 {member.sex === "male"
@@ -1335,7 +1000,7 @@ export default function Home() {
                       className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm"
                     >
                       <div className="text-sm font-semibold text-slate-700">
-                        Quasi-Drug Recommendations
+                        AI Medication Recommendation
                       </div>
                       <p className="mt-2 text-xs text-slate-500">
                         Personalized Medicine List
@@ -1710,7 +1375,7 @@ export default function Home() {
               )}
             </main>
 
-            {showBottomNav && hasCompletedOnboarding ? (
+            {showBottomNav && !showSplash && hasCompletedOnboarding ? (
               <nav className="absolute bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-6 py-3">
                 <div className="flex items-center justify-between text-xs text-slate-400">
                   {(["home", "history", "info"] as TabKey[]).map((tab) => (
@@ -1767,7 +1432,6 @@ export default function Home() {
               </nav>
             ) : null}
           </div>
-        )}
       </div>
     </div>
   );
