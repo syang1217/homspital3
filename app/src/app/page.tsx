@@ -68,7 +68,7 @@ export default function Home() {
       conditions: string[];
       notes: string;
     }[]
-  >(() => createRandomMembers(3));
+  >(() => createDefaultMembers(3));
 
   const healthConditions = [
     "Diabetes",
@@ -90,25 +90,13 @@ export default function Home() {
     };
   }
 
-  function createRandomMembers(count: number) {
-    const namePool = [
-      "Alex",
-      "Jamie",
-      "Taylor",
-      "Jordan",
-      "Casey",
-      "Morgan",
-      "Riley",
-    ];
+  function createDefaultMembers(count: number) {
     return Array.from({ length: count }, (_, index) => {
-      const name =
-        namePool[(index + Math.floor(Math.random() * namePool.length)) % namePool.length];
-      const age = 10 + Math.floor(Math.random() * 55);
-      const sex: "male" | "female" = Math.random() > 0.5 ? "male" : "female";
+      const name = index === 0 ? "User" : `Family ${index}`;
       return {
-        name: index === 0 ? "User" : name,
-        sex,
-        age,
+        name,
+        sex: "" as "male" | "female" | "",
+        age: 0,
         conditions: [],
         notes: "",
       };
@@ -216,11 +204,9 @@ export default function Home() {
         return;
       }
       if (!event.newValue) {
-        setIsAuthenticated(false);
         setHasSignedUp(false);
-        setUserId("");
-        setFamilyCount(1);
-        setFamilyMembers([createDefaultMember()]);
+        setFamilyCount(3);
+        setFamilyMembers(createDefaultMembers(3));
         return;
       }
       try {
