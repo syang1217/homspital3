@@ -186,13 +186,7 @@ export default function Home() {
     if (activeTab === "voice") {
       return;
     }
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-    recognitionRef.current?.stop();
-    setIsListening(false);
-    setIsSpeaking(false);
-    isSpeakingRef.current = false;
+    handleConversationEnd();
   }, [activeTab]);
 
   useEffect(() => {
